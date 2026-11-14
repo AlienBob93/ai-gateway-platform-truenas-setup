@@ -1,0 +1,73 @@
+# Local deployment record
+
+Placeholders used throughout (real values live only in the local `.env`):
+
+| Placeholder | Meaning |
+|---|---|
+| `<nas-ip>` | the TrueNAS host on the LAN |
+| `<proxy-ip>` | the second host running Caddy |
+| `<tailscale-ip>` | the NAS's tailscale IP (100.x) |
+| `<tailnet-name>` | the tailnet's DNS suffix |
+| `<pool>` | the TrueNAS pool holding app data |
+
+## Topology
+
+- **NAS** (TrueNAS 25.04.2.6): Ollama (ix app), OpenWebUI (ix app), vane (ix app), Tailscale
+  (ix app), and the `ai-gateway-platform` ix app (gateway + prometheus + jaeger + grafana).
+- **Proxy host**: Caddy (Docker, DNS-01 via Cloudflare), HomeAssistant (Docker), the GitHub
+  Actions self-hosted runner (`ai-review` label), and the `ai-gateway-platform-registry`
+  container. Also on the tailnet.
+
+## Chosen names and paths
+
+- App name: `ai-gateway-platform`; registry container: `ai-gateway-platform-registry`
+  (image path stays `registry.example.org/aigw:local` — the registry's repo name).
+- Dataset: `Application_Pool/aigw` (gateway policy, prometheus config, Grafana provisioning).
+- Ports: gateway `8080`, Grafana `3000` on the NAS; Ollama's ix-app port is auto-assigned
+  (`30068` here); OpenWebUI's too (`31028` here).
+- Dashboard: `https://aigw.example.org` via Caddy, plus `tailscale serve --bg http://<nas-ip>:3000`.
+- Registry: `https://registry.example.org` → the container (pulls anonymous via Caddy's
+  injected credentials; pushes need basic auth via `localhost:5000` from the proxy host).
+
+## Teams and consumers
+
+| Team | Consumer | Models | Rate limit |
+|---|---|---|---|
+| openwebui | OpenWebUI | qwen3.8-27b, gemma4-12b | 60 rpm |
+| vane | vane (search agent) | both | 30 rpm |
+| homeassistant | HomeAssistant voice | gemma4-12b only | 20 rpm |
+| pr-review | GitHub PR reviews | qwen3.8-27b | 10 rpm |
+
+## Wiring details worth knowing
+
+- **OpenWebUI**: the gateway was added as a third OpenAI connection (prefix `AIGW`) by
+  editing the `config` table of `webui.db` with the app stopped (full DB backed up first).
+  OpenWebUI uses Ollama for RAG embeddings (`embeddinggemma:300m`) — that path stays direct
+  because the gateway does not serve embeddings; the Ollama hostname there must track the
+  tailscale IP like the gateway policy does.
+- **vane**: an `openai`-type model provider was added to `/mnt/<pool>/vane-search/config.json`
+  (app stopped). The stored provider `hash` is stale-tolerant; vane recomputes it.
+- **HomeAssistant**: HA 2026.9's built-in `openai_conversation` has no custom base URL, so
+  `extended_openai_conversation` 3.0.0-beta12 was installed into `custom_components/` and a
+  config entry added via `.storage/core.config_entries` (HA stopped). The Assist pipeline
+  was renamed "AI Gateway" and its conversation agent pointed at
+  `conversation.ai_gateway_conversation`; the direct `ollama` config entry was deleted.
+  Stale entity-registry rows prune themselves.
+- **GitHub action**: the private `<github-user>/ai-review` repo's composite action had moved
+  past the local copy on the proxy host (a guidelines feature). The patch was applied against
+  current `main` — when patching local forks, always diff against the repo first.
+
+## Enforcement details
+
+- Ollama's port binding was changed from `0.0.0.0` to the tailscale IP via
+  `midclt call app.update ollama '{custom_compose_config_string: ...}'` with the port entry
+  gaining `"host_ip": "<tailscale-ip>"`. Verified: LAN unreachable, tailscale IP answers.
+- The gateway policy `base_url`s use `http://<tailscale-ip>:30068/v1`; the policy change
+  needs a gateway app restart (policy is read at startup).
+- Residual: tailnet members can still reach Ollama; a host firewall rule would close it.
+
+## Backups taken during setup
+
+- OpenWebUI DB: `/mnt/<pool>/aigw/backup-openwebui/`
+- vane config: `/tmp/vane-config-backup.json` on the NAS
+- HA config entries: `.storage/core.config_entries.bak-aigw` on the proxy host

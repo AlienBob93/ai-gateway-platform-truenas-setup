@@ -2,7 +2,7 @@ services:
   gateway:
     image: registry.example.org/aigw:local
     ports:
-      - "<nas-ip>:8080:8080"
+      - "8080:8080"   # pin to an interface, e.g. "<nas-ip>:8080:8080", if desired
     volumes:
       - /mnt/Application_Pool/aigw/gateway.yaml:/etc/aigw/gateway.yaml:ro
     environment:
@@ -29,7 +29,7 @@ services:
       GF_SERVER_ROOT_URL: https://aigw.example.org
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/aigw.json
     ports:
-      - "<nas-ip>:3000:3000"
+      - "3000:3000"   # pin to an interface, e.g. "<nas-ip>:3000:3000", if desired
     volumes:
       - /mnt/Application_Pool/aigw/provisioning:/etc/grafana/provisioning:ro
       - /mnt/Application_Pool/aigw/dashboards:/var/lib/grafana/dashboards:ro
