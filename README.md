@@ -140,6 +140,22 @@ nothing else to reach. Set `GF_SERVER_ROOT_URL` (Step 4) so Grafana's links come
 | **HomeAssistant** | The official `openai_conversation` integration hardcodes OpenAI's endpoint in HA ≤ 2026.9 — install [`extended_openai_conversation`](https://github.com/jekalmin/extended_openai_conversation) (check the version against your HA release) and configure the gateway URL + key. |
 | **GitHub PR reviews** | A stdlib-only review script + composite action that call the gateway are in [`consumers/`](consumers/); store the CI team key as an Actions secret. |
 
+## Optional: gateway metrics in Home Assistant (MQTT)
+
+The dashboard's numbers can surface in Home Assistant via a small sidecar in the same ix app
+([`mqtt/publisher.py`](mqtt/publisher.py), image source in the same directory). It queries the
+internal Prometheus every 60 s and publishes per-team aggregates — spend, requests
+(ok/denied/errored), tokens, fallbacks, content findings, latency p95, and gateway-up — to
+mosquitto, together with HA MQTT-discovery configs. Entities appear automatically under an
+"AI Gateway" device; no HA-side config.
+
+Requirements: a mosquitto user for the publisher (`mosquitto_passwd <file> aigw`, password in
+the local `.env`), and the broker reachable from the NAS. Add the `mqtt-publisher` service from
+[`compose/ai-gateway-platform.yaml`](compose/ai-gateway-platform.yaml) via `app.update`.
+
+Note: mosquitto restarts drop retained messages unless `persistence` is on — the publisher
+re-announces everything each cycle anyway.
+
 ## Enforcement: Ollama behind the gateway
 
 Removing client-side connections changes defaults, not possibilities — any client could

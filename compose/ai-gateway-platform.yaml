@@ -10,6 +10,23 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OTEL_SERVICE_NAME: aigw
 
+  mqtt-publisher:
+    image: registry.example.org/aigw-mqtt-publisher:local
+    volumes:
+      - /mnt/<pool>/aigw/mqtt/publisher.py:/app/publisher.py:ro
+      - /mnt/<pool>/aigw/mqtt/logs:/app/logs
+    environment:
+      PROM_URL: http://prometheus:9090
+      MQTT_HOST: <proxy-ip>
+      MQTT_PORT: "1883"
+      MQTT_USER: aigw
+      MQTT_PASS: <mqtt-aigw-password>     # see .env locally
+      TEAMS: chat,search,voice,ci
+      INTERVAL: "60"
+      LOG_FILE: /app/logs/publisher.log
+    depends_on:
+      - prometheus
+
   prometheus:
     image: prom/prometheus:v3.1.0
     command: ["--config.file=/etc/prometheus/prometheus.yml"]

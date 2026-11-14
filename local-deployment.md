@@ -71,3 +71,21 @@ Placeholders used throughout (real values live only in the local `.env`):
 - OpenWebUI DB: `/mnt/<pool>/aigw/backup-openwebui/`
 - vane config: `/tmp/vane-config-backup.json` on the NAS
 - HA config entries: `.storage/core.config_entries.bak-aigw` on the proxy host
+- mosquitto passwd: `passwd.bak-aigw` in the mosquitto config dir on the proxy host
+
+## MQTT to Home Assistant (2026-11-14)
+
+The `mqtt-publisher` sidecar was added to the ix app (image
+`registry.example.org/aigw-mqtt-publisher:local`, script mounted read-only from the dataset
+`/mnt/<pool>/aigw/mqtt/publisher.py`, logs to `/mnt/<pool>/aigw/mqtt/logs/publisher.log`).
+
+- Two broker users were created: `aigw` (publisher) and `homeassistant` (HA's MQTT
+  integration was moved off the shared old account onto its own user — this fixed discovery:
+  the 30 `sensor.ai_gateway_*` entities appeared immediately after the switch).
+- Gotchas hit: mosquitto's config mount is read-only (run `mosquitto_passwd` via a separate
+  container mounting it rw); `mosquitto_passwd -c` wipes existing users (merge from backup);
+  mosquitto restarts drop retained messages (no persistence configured — publisher re-announces
+  each cycle); HA's entity registry file on disk lags reality by minutes — don't trust it for
+  "is discovery working" checks; use the broker (`mosquitto_sub`) instead.
+- The publisher's own container logs aren't reachable without root — that's why it writes
+  `/mnt/<pool>/aigw/mqtt/logs/publisher.log`.
