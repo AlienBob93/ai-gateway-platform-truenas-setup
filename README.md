@@ -145,9 +145,12 @@ nothing else to reach. Set `GF_SERVER_ROOT_URL` (Step 4) so Grafana's links come
 The dashboard's numbers can surface in Home Assistant via a small sidecar in the same ix app
 ([`mqtt/publisher.py`](mqtt/publisher.py), image source in the same directory). It queries the
 internal Prometheus every 60 s and publishes per-team aggregates — spend, requests
-(ok/denied/errored), tokens, fallbacks, content findings, latency p95, and gateway-up — to
-mosquitto, together with HA MQTT-discovery configs. Entities appear automatically under an
-"AI Gateway" device; no HA-side config.
+(ok/denied/errored), tokens (per team plus a total across all teams), fallbacks, content
+findings, latency p95, and gateway-up — to mosquitto, together with HA MQTT-discovery configs.
+Entities appear automatically under an "AI Gateway" device; no HA-side config.
+
+Note: counters only exist in Prometheus once the gateway serves its first request after a
+restart, so team/global sensors read unknown until then; that is normal.
 
 Requirements: a mosquitto user for the publisher (`mosquitto_passwd <file> aigw`, password in
 the local `.env`), and the broker reachable from the NAS. Add the `mqtt-publisher` service from

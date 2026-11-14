@@ -47,6 +47,7 @@ QUERIES = {
     "requests_error": 'sum by (team) (aigw_requests_total{status="error"})',
     "spend_usd": "sum by (team) (aigw_cost_usd_total)",
     "tokens_total": "sum by (team) (aigw_tokens_total)",
+    "tokens_total_all": "sum(aigw_tokens_total)",
     "latency_p95_seconds":
         "histogram_quantile(0.95, sum by (le) (rate(aigw_request_duration_seconds_bucket[10m])))",
     "fallbacks": "sum by (team) (aigw_fallbacks_total)",
@@ -110,6 +111,7 @@ def publish_discovery(client):
                 cfg["device_class"] = dev_class
             pub(client, f"homeassistant/sensor/aigw/{eid}/config", json.dumps(cfg))
     for eid, name, unit, state_class, ic in [
+        ("tokens_total", "Tokens Total", "tokens", "total_increasing", None),
         ("latency_p95_seconds", "Latency p95", "s", "measurement", "mdi:speedometer"),
         ("gateway_up", "Gateway Up", "", None, None),
     ]:
@@ -153,6 +155,12 @@ def main():
                     val = res.get("-global")
                     if val is not None:
                         publish_state(client, key, "global", val)
+                    continue
+                if key.endswith("_all"):
+                    base = key[:-4]  # strip _all: same topic prefix as the per-team sensor
+                    val = res.get("-global")
+                    if val is not None:
+                        publish_state(client, base, "global", val)
                     continue
                 for team in TEAMS:
                     publish_state(client, key, team, by_team(res, team))
