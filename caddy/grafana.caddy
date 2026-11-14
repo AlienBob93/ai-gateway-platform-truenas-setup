@@ -1,0 +1,13 @@
+# Caddy block for .46 — added to the real Caddyfile at ~/caddy/Caddyfile on
+# <caddy-host> (<proxy-ip>), next to the other example.org services.
+#
+# Only the dashboard is proxied, and the dashboard is the only observability surface that
+# exists: prometheus and jaeger run inside the aigw app's compose network with no ports
+# published at all, so there is nothing else to reach. The Caddy -> Grafana hop stays on
+# the home LAN; tailnet users additionally reach the dashboard via tailscale serve
+# (README Step 5). Certs: DNS-01 via Cloudflare, like the rest of this domain.
+
+# --- .132 gateway dashboard (ai-gateway-platform) ---
+aigw.example.org {
+    reverse_proxy <nas-ip>:3000
+}

@@ -1,0 +1,30 @@
+# Caddy block for .46 — the local docker registry serving the gateway image.
+# Deployed on <caddy-host> next to the other blocks in ~/caddy/Caddyfile.
+#
+# - Pulls (GET/HEAD): anonymous to the client — Caddy injects the registry's own basic-auth
+#   credentials server-side, so the TrueNAS daemon pulls with no docker login.
+# - Pushes (POST/PATCH/PUT/DELETE): Caddy requires basic auth (registrypush, password in
+#   ~/registry_pw on .46).
+# - The registry container (ai-gateway-platform-registry) publishes only on the caddy
+#   network and 127.0.0.1:5000 on .46 — no LAN exposure. Pushes happen locally via
+#   localhost:5000; pulls happen through this TLS route.
+# - DNS: registry.example.org -> <proxy-ip> (A record, DNS-only, in Cloudflare).
+#
+# NOTE: the image blobs live in the container's writable layer — no data volume yet.
+# Recreating the container loses the image; re-push from ~/aigw-build on .46 (README).
+
+# --- local docker registry (pulls anonymous via injected creds; pushes need basic auth) ---
+registry.example.org {
+    @write method POST PATCH PUT DELETE
+    handle @write {
+        basic_auth {
+            registrypush <base64-of-bcrypt-hash>   # htpasswd -nbB registrypush <pw> | base64
+        }
+        reverse_proxy ai-gateway-platform-registry:5000
+    }
+    handle {
+        reverse_proxy ai-gateway-platform-registry:5000 {
+            header_up Authorization "Basic <base64-of-registrypush:pw>"
+        }
+    }
+}

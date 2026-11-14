@@ -1,0 +1,47 @@
+name: Ollama PR Review
+description: >-
+  Review a pull request with a local Ollama model and post the result as a
+  single, updatable comment. Requires a runner labelled `ai-review` with
+  Python 3 (no other dependencies).
+
+inputs:
+  pr_number:
+    description: Pull request number to review
+    required: true
+  model:
+    description: Gateway model name to use
+    required: false
+    default: qwen3.8-27b
+  ollama_url:
+    description: Base URL of the AI gateway (kept for workflow compatibility)
+    required: false
+    default: http://<nas-ip>:8080
+  num_ctx:
+    description: Context window requested from Ollama
+    required: false
+    default: "65536"
+  chunk_bytes:
+    description: Maximum bytes per diff chunk
+    required: false
+    default: "120000"
+  max_chunks:
+    description: Maximum number of diff chunks to review
+    required: false
+    default: "12"
+
+runs:
+  using: composite
+  steps:
+    - name: Review pull request
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        MODEL: ${{ inputs.model }}
+        OLLAMA_URL: ${{ inputs.ollama_url }}
+        AIGW_KEY: ${{ secrets.AIGW_KEY }}
+        NUM_CTX: ${{ inputs.num_ctx }}
+        CHUNK_BYTES: ${{ inputs.chunk_bytes }}
+        MAX_CHUNKS: ${{ inputs.max_chunks }}
+      run: python3 "${{ github.action_path }}/pr_review_gateway.py"

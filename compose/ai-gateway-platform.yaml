@@ -1,0 +1,38 @@
+services:
+  gateway:
+    image: registry.example.org/aigw:local
+    ports:
+      - "<nas-ip>:8080:8080"
+    volumes:
+      - /mnt/Application_Pool/aigw/gateway.yaml:/etc/aigw/gateway.yaml:ro
+    environment:
+      # Jaeger's OTLP receiver, reached inside the compose network: nothing exposed.
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_SERVICE_NAME: aigw
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - /mnt/Application_Pool/aigw/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /mnt/Application_Pool/aigw/rules.yaml:/etc/prometheus/rules/rules.yaml:ro
+
+  jaeger:
+    image: jaegertracing/jaeger:2.1.0
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: CHANGE-ME
+      GF_SERVER_ROOT_URL: https://aigw.example.org
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/aigw.json
+    ports:
+      - "<nas-ip>:3000:3000"
+    volumes:
+      - /mnt/Application_Pool/aigw/provisioning:/etc/grafana/provisioning:ro
+      - /mnt/Application_Pool/aigw/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - jaeger

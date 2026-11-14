@@ -1,0 +1,58 @@
+# Gateway policy for the home TrueNAS setup (.132, Ollama upstream).
+#
+# One team per consumer: separate key, separate rate limit, one audit line per request.
+# Ollama is free, so models carry no `price` — budgets would never trigger; rate limits
+# are the control. Keys were generated 2026-11-14 with `python -m aigw.keys <team>`.
+#
+# Validated: gateway/.venv/bin/python -m aigw.check policies/gateway.home.yaml
+#   -> valid, mode development, 2 models, 4 teams
+
+# Default store is in-process memory: fine for a single gateway replica. Add a Redis
+# backend only if you ever run more than one replica.
+store:
+  backend: memory
+
+models:
+  # Ollama (ix app) publishes only on the host's tailscale IP — LAN clients cannot reach
+  # it directly; the gateway routes everything (enforcement step, see README).
+  # Names on the left are what clients send as "model"; right side is the Ollama tag.
+  - name: qwen3.8-27b
+    provider: openai_compat
+    base_url: http://<tailscale-ip>:30068/v1
+    upstream_model: qwen3.8:27b
+    timeout_seconds: 600            # local inference can be slow on long prompts
+
+  - name: gemma4-12b
+    provider: openai_compat
+    base_url: http://<tailscale-ip>:30068/v1
+    upstream_model: gemma4:12b
+    timeout_seconds: 600
+
+teams:
+  - name: openwebui
+    key_sha256:
+      - 553fbcea1906fa5e92a9e228829bcfb5d5b45bf924b3bcafbe024ce2d0760b2d
+    allowed_models: [qwen3.8-27b, gemma4-12b]
+    requests_per_minute: 60
+
+  - name: vane
+    key_sha256:
+      - 5c8aac29304e8602625c7330d644e3d857f4067539d3a3438c8eb1d29e772641
+    allowed_models: [qwen3.8-27b, gemma4-12b]
+    requests_per_minute: 30
+
+  - name: homeassistant
+    key_sha256:
+      - 66df8096c68e29a0881002c2f1a9e3b5755301b4b4606cf8f07698008b796168
+    allowed_models: [gemma4-12b]    # voice assistant: small model, fast
+    requests_per_minute: 20
+
+  - name: pr-review
+    key_sha256:
+      - 2b728cc8ab146a8cb4db50e07554c04caf4885d85e3a693597b25821996aeab3
+    allowed_models: [qwen3.8-27b]
+    requests_per_minute: 10
+
+# Content guardrails (ADR-0010) use the defaults when not set: secrets redacted, PII
+# audited, per team. Tighten one team with e.g.:
+#   content: {secrets: block, pii: redact}
