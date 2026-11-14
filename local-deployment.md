@@ -25,7 +25,10 @@ Placeholders used throughout (real values live only in the local `.env`):
 - Dataset: `Application_Pool/aigw` (gateway policy, prometheus config, Grafana provisioning).
 - Ports: gateway `8080`, Grafana `3000` on the NAS; Ollama's ix-app port is auto-assigned
   (`30068` here); OpenWebUI's too (`31028` here).
-- Dashboard: `https://aigw.example.org` via Caddy, plus `tailscale serve --bg http://<nas-ip>:3000`.
+- Dashboard: `https://aigw.example.org` via Caddy, plus a named Tailscale Service
+  `ai-gateway-dashboard.<tailnet-name>.ts.net` (serve `--https=ai-gateway-dashboard`, target
+  `http://<nas-ip>:3000`; Caddy on the proxy host also fronts that name for cert-consistent
+  access — the ts.net cert comes from the local tailscaled).
 - Registry: `https://registry.example.org` → the container (pulls anonymous via Caddy's
   injected credentials; pushes need basic auth via `localhost:5000` from the proxy host).
 

@@ -106,16 +106,25 @@ curl http://<nas-ip>:8080/v1/chat/completions \
   -d '{"model": "main", "messages": [{"role": "user", "content": "hello"}]}'
 ```
 
-## Step 5 — publish the dashboard on the tailnet
+## Step 5 — publish the dashboard as a named Tailscale Service
 
-One-time, in the Tailscale app's shell (Apps → Tailscale → Shell) or via SSH on the NAS:
+A **named service** gets its own DNS name (`<name>.<tailnet>.ts.net`) instead of riding the
+node's hostname. One-time, in the Tailscale app's shell (Apps → Tailscale → Shell) or via
+SSH on the NAS:
 
 ```bash
-sudo docker exec -it <tailscale-container> tailscale serve --bg http://<nas-ip>:3000
+sudo docker exec -it <tailscale-container> \
+  tailscale serve --bg --https=ai-gateway-dashboard http://<nas-ip>:3000
 ```
 
-The serve config persists in the app's state. The dashboard is then reachable only inside
-the tailnet at `https://<hostname>.<tailnet>.ts.net` with an automatic certificate.
+Tailscale then shows the service in the admin console for one-time approval. Once approved,
+the dashboard is reachable only inside the tailnet at
+`https://ai-gateway-dashboard.<tailnet>.ts.net` with an automatic certificate. The serve
+config persists in the app's state. The proxy host can also front this name — its Caddy
+fetches ts.net certificates from the local tailscaled (see `caddy/grafana.caddy`).
+
+If your Tailscale version predates named Services, the node-hostname variant works instead:
+`tailscale serve --bg http://<nas-ip>:3000` → `https://<hostname>.<tailnet>.ts.net`.
 
 ## Step 6 — dashboard via Caddy
 
