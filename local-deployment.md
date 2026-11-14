@@ -66,6 +66,16 @@ Placeholders used throughout (real values live only in the local `.env`):
   needs a gateway app restart (policy is read at startup).
 - Residual: tailnet members can still reach Ollama; a host firewall rule would close it.
 
+## MQTT metrics in HA (2026-11-14 update)
+
+A global token sensor was added: `sensor.ai_gateway_tokens_total` (topic
+`aigw/tokens_total/global`, from `sum(aigw_tokens_total)`).
+
+Prometheus subtlety learned: `prometheus_client` does not export a labeled series until its
+first `.labels()` call, and the gateway counters reset when its container is recreated — so
+per-team and global sensor topics vanish (retained 0s / unknowns) after a gateway restart
+until the next request. Expected behavior, documented in the README.
+
 ## Backups taken during setup
 
 - OpenWebUI DB: `/mnt/<pool>/aigw/backup-openwebui/`
