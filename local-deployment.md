@@ -41,6 +41,19 @@ Placeholders used throughout (real values live only in the local `.env`):
 | homeassistant | HomeAssistant voice | gemma4-12b only | 20 rpm |
 | pr-review | GitHub PR reviews | qwen3.8-27b | 10 rpm |
 
+## Public exposure (verified 2026-11-14)
+
+- `homeai.example.org` (proxied cloudflared tunnel) is **OpenWebUI** — intentionally public,
+  authenticated natively via Pocket ID (OpenWebUI OIDC). Verify signups stay closed
+  (OpenWebUI admin panel: "Enable New Sign Ups" off; `ENABLE_OAUTH_SIGNUP` default false).
+- All Caddy LAN routes for the self-hosted apps (casaos, homeassistant, uptime, jellyfin,
+  comfy, code, searxng, arm) were disabled — those apps are tailscale-only via Services.
+- `*.example.org` wildcard is a dns-only A record to the proxy host: Caddy-served names are
+  unreachable from the internet. The genuinely public surface is the tunnel CNAMEs only,
+  governed in the Cloudflare Zero Trust dashboard (token-managed tunnel).
+- HomeAssistant currently has no hostname path (no ts.net service, Caddy disabled) — pending
+  tagging the proxy host node to host `svc:homeassistant`, `svc:uptime`, `svc:casaos`.
+
 ## Wiring details worth knowing
 
 - **OpenWebUI**: the gateway was added as a third OpenAI connection (prefix `AIGW`) by
