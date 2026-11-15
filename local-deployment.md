@@ -51,8 +51,13 @@ Placeholders used throughout (real values live only in the local `.env`):
 - `*.example.org` wildcard is a dns-only A record to the proxy host: Caddy-served names are
   unreachable from the internet. The genuinely public surface is the tunnel CNAMEs only,
   governed in the Cloudflare Zero Trust dashboard (token-managed tunnel).
-- HomeAssistant currently has no hostname path (no ts.net service, Caddy disabled) — pending
-  tagging the proxy host node to host `svc:homeassistant`, `svc:uptime`, `svc:casaos`.
+- The proxy host (.46) is a tagged Service host running 8 services: arm, casaos, code, comfy,
+  dockhand, homeassistant, jellyfin, local-search (= searxng). Access from tailnet client
+  devices (e.g. the user's PC) works; note the two service-HOST nodes themselves (the tagged
+  NAS and the proxy host) cannot resolve service DNS from their own resolvers — an ACL/grants
+  visibility quirk that does not affect real clients.
+- Still missing a Service: **uptime** (uptime-kuma on .46:3001) — define `svc:uptime` in the
+  admin console and serve it on .46.
 
 ## Wiring details worth knowing
 
