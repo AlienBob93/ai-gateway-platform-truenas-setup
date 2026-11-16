@@ -148,6 +148,7 @@ nothing else to reach. Set `GF_SERVER_ROOT_URL` (Step 4) so Grafana's links come
 | **OpenWebUI** | Admin → Settings → Connections → OpenAI API: add the gateway URL + key. Leave the direct Ollama connection off (see enforcement). |
 | **HomeAssistant** | The official `openai_conversation` integration hardcodes OpenAI's endpoint in HA ≤ 2026.9 — install [`extended_openai_conversation`](https://github.com/jekalmin/extended_openai_conversation) (check the version against your HA release) and configure the gateway URL + key. |
 | **GitHub PR reviews** | A stdlib-only review script + composite action that call the gateway are in [`consumers/`](consumers/); store the CI team key as an Actions secret. |
+| **OpenCode** | Define a custom `openai-compatible` provider with base URL `http://<nas-ip>:8080/v1` and the team key; list the policy's models explicitly (see `local-deployment.md`). |
 
 ## Optional: gateway metrics in Home Assistant (MQTT)
 

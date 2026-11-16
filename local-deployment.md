@@ -36,10 +36,11 @@ Placeholders used throughout (real values live only in the local `.env`):
 
 | Team | Consumer | Models | Rate limit |
 |---|---|---|---|
-| openwebui | OpenWebUI | qwen3.8-27b, gemma4-12b | 60 rpm |
-| vane | vane (search agent) | both | 30 rpm |
-| homeassistant | HomeAssistant voice | gemma4-12b only | 20 rpm |
-| pr-review | GitHub PR reviews | qwen3.8-27b | 10 rpm |
+| openwebui | OpenWebUI | qwen3.8-27b, gemma4-12b, flint-40b | 60 rpm |
+| vane | vane (search agent) | all three | 30 rpm |
+| homeassistant | HomeAssistant voice | gemma4-12b (default), gemma4-e4b, flint-40b | 20 rpm |
+| pr-review | GitHub PR reviews | qwen3.8-27b, flint-40b | 10 rpm |
+| opencode | OpenCode (coding agent, user's PC) | qwen3.8-27b, gemma4-12b, gemma4-e4b, flint-40b | 60 rpm |
 
 ## Public exposure (verified 2026-11-14)
 
@@ -77,6 +78,29 @@ Placeholders used throughout (real values live only in the local `.env`):
 - **GitHub action**: the private `<github-user>/ai-review` repo's composite action had moved
   past the local copy on the proxy host (a guidelines feature). The patch was applied against
   current `main` — when patching local forks, always diff against the repo first.
+- **OpenCode** (2026-11-16): global `~/.config/opencode/opencode.json` defines a custom
+  `aigw` provider (`@opencode/ai/providers/openai-compatible`, base URL
+  `http://<nas-ip>:8080/v1`). The team key lives in `~/.config/opencode/aigw-key` (mode 600),
+  referenced via `{file:}` substitution — no secret in the config itself. Model context
+  limits are set to 65536 to match the Ollama app's `OLLAMA_CONTEXT_LENGTH`, and
+  `headerTimeout` to 600 s to match the policy's upstream timeout. Models: `aigw/qwen3.8-27b`,
+  `aigw/gemma4-12b` (both tools + vision, per Ollama `/api/tags`), `aigw/flint-40b`
+  (tools, text-only).
+- **flint:40b** (2026-11-16): pulled on Ollama (`flint:40b`, 23 GB, 39.8B MoE with ~2.5B
+  active) and exposed through the gateway as `flint-40b` to every team. A derived tag
+  `flint:40b-256k` bakes in `num_ctx 262144` — without it the app-wide
+  `OLLAMA_CONTEXT_LENGTH` (65536) caps every model — and the gateway points at that tag.
+  Measured on the pair of RX 7900 XT (20 GB each): 34.3 GiB peak VRAM, ~3000 tok/s prefill
+  at 39k tokens, ~1300 tok/s at 190k (143 s), inside the gateway's 600 s timeout. OpenCode's
+  model limit is 262144, so its default 15% compaction buffer (~39k tokens) triggers
+  compaction before the window fills. HomeAssistant keeps gemma4-12b as its configured
+  voice model; flint is merely allowed there.
+
+- **gemma4:e4b** (2026-11-16): exposed through the gateway as `gemma4-e4b` for the
+  HomeAssistant team (faster voice option alongside gemma4-12b) and the opencode team; the
+  Ollama library has no `gemma4:4b` tag — e4b is the 4B-class size. Runs at the app-wide 64k
+  context (native 128k), which is ample for voice. Selected in HA's
+  `extended_openai_conversation` config by changing the model name to `gemma4-e4b`.
 
 ## Enforcement details
 
@@ -120,3 +144,12 @@ The `mqtt-publisher` sidecar was added to the ix app (image
   "is discovery working" checks; use the broker (`mosquitto_sub`) instead.
 - The publisher's own container logs aren't reachable without root — that's why it writes
   `/mnt/<pool>/aigw/mqtt/logs/publisher.log`.
+- **2026-11-16**: `opencode` added to the publisher's `TEAMS` env (via `app.update`), so HA
+  gets per-team entities for it too.
+- **2026-11-16 — Tokens Total stuck at 0**: the publisher registered the global
+  `tokens_total` and `latency_p95_seconds` sensors with the un-suffixed discovery topics
+  (`aigw/tokens_total`, `aigw/latency_p95_seconds`) while publishing state to
+  `.../global`, so HA never received a global value. Fixed in `mqtt/publisher.py`
+  (discovery now uses `.../global`); deployed to the dataset and the app restarted.
+  Reminder: gateway counters are in-memory, so the total resets to 0 after any gateway
+  container recreation and climbs again with traffic.

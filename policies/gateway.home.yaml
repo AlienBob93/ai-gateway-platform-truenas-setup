@@ -5,7 +5,7 @@
 # are the control. Keys were generated 2026-11-14 with `python -m aigw.keys <team>`.
 #
 # Validated: gateway/.venv/bin/python -m aigw.check policies/gateway.home.yaml
-#   -> valid, mode development, 2 models, 4 teams
+#   -> valid, mode development, 4 models, 5 teams
 
 # Default store is in-process memory: fine for a single gateway replica. Add a Redis
 # backend only if you ever run more than one replica.
@@ -28,30 +28,48 @@ models:
     upstream_model: gemma4:12b
     timeout_seconds: 600
 
+  - name: flint-40b
+    provider: openai_compat
+    base_url: http://<tailscale-ip>:30068/v1
+    upstream_model: flint:40b-256k    # derived tag: num_ctx 262144
+    timeout_seconds: 600
+
+  - name: gemma4-e4b
+    provider: openai_compat
+    base_url: http://<tailscale-ip>:30068/v1
+    upstream_model: gemma4:e4b
+    timeout_seconds: 600
+
 teams:
   - name: openwebui
     key_sha256:
       - 553fbcea1906fa5e92a9e228829bcfb5d5b45bf924b3bcafbe024ce2d0760b2d
-    allowed_models: [qwen3.8-27b, gemma4-12b]
+    allowed_models: [qwen3.8-27b, gemma4-12b, flint-40b]
     requests_per_minute: 60
 
   - name: vane
     key_sha256:
       - 5c8aac29304e8602625c7330d644e3d857f4067539d3a3438c8eb1d29e772641
-    allowed_models: [qwen3.8-27b, gemma4-12b]
+    allowed_models: [qwen3.8-27b, gemma4-12b, flint-40b]
     requests_per_minute: 30
 
   - name: homeassistant
     key_sha256:
       - 66df8096c68e29a0881002c2f1a9e3b5755301b4b4606cf8f07698008b796168
-    allowed_models: [gemma4-12b]    # voice assistant: small model, fast
+    allowed_models: [gemma4-12b, gemma4-e4b, flint-40b]    # e4b = faster voice option
     requests_per_minute: 20
 
   - name: pr-review
     key_sha256:
       - 2b728cc8ab146a8cb4db50e07554c04caf4885d85e3a693597b25821996aeab3
-    allowed_models: [qwen3.8-27b]
+    allowed_models: [qwen3.8-27b, flint-40b]
     requests_per_minute: 10
+
+  - name: opencode
+    key_sha256:
+      - 0f07f2793e4646c7601eaa2a42d721d034224f8d230ebc8099a6948baf68b460
+    allowed_models: [qwen3.8-27b, gemma4-12b, gemma4-e4b, flint-40b]
+    requests_per_minute: 60
 
 # Content guardrails (ADR-0010) use the defaults when not set: secrets redacted, PII
 # audited, per team. Tighten one team with e.g.:

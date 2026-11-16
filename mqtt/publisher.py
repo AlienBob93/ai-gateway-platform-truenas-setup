@@ -115,8 +115,11 @@ def publish_discovery(client):
         ("latency_p95_seconds", "Latency p95", "s", "measurement", "mdi:speedometer"),
         ("gateway_up", "Gateway Up", "", None, None),
     ]:
+        # Tokens and latency are published to <prefix>/<key>/global; gateway_up is
+        # published directly to <prefix>/gateway_up. Keep discovery in sync.
+        state_topic = f"{PREFIX}/{eid}" + ("" if eid == "gateway_up" else "/global")
         cfg = {"name": name, "unique_id": f"aigw_{eid}",
-               "state_topic": f"{PREFIX}/{eid}", "device": device}
+               "state_topic": state_topic, "device": device}
         if unit:
             cfg["unit_of_measurement"] = unit
         if state_class:
