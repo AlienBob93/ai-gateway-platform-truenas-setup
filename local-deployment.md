@@ -113,8 +113,12 @@ Placeholders used throughout (real values live only in the local `.env`):
 
 ## MQTT metrics in HA (2026-11-14 update)
 
-A global token sensor was added: `sensor.ai_gateway_tokens_total` (topic
-`aigw/tokens_total/global`, from `sum(aigw_tokens_total)`).
+A gateway-wide usage sensor was added: `sensor.ai_gateway_tokens_per_minute` (topic
+`aigw/tokens_rate/global`, from `sum(rate(aigw_tokens_total[10m])) * 60`). The earlier
+cumulative `sensor.ai_gateway_tokens_total` was retired (its discovery config and retained
+state are cleared) because a raw counter is dominated by re-sent prompt tokens and resets
+with every gateway restart; the rate stays meaningful across restarts. Per-team `tokens`
+sensors remain cumulative counts.
 
 Prometheus subtlety learned: `prometheus_client` does not export a labeled series until its
 first `.labels()` call, and the gateway counters reset when its container is recreated — so
@@ -153,3 +157,6 @@ The `mqtt-publisher` sidecar was added to the ix app (image
   (discovery now uses `.../global`); deployed to the dataset and the app restarted.
   Reminder: gateway counters are in-memory, so the total resets to 0 after any gateway
   container recreation and climbs again with traffic.
+- **2026-11-16 — follow-up**: the global cumulative total was replaced by the
+  tokens/min rate sensor described above; the retired entity's discovery config and
+  retained state are cleared by the publisher on startup. Per-team counters unchanged.

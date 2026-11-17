@@ -47,7 +47,10 @@ QUERIES = {
     "requests_error": 'sum by (team) (aigw_requests_total{status="error"})',
     "spend_usd": "sum by (team) (aigw_cost_usd_total)",
     "tokens_total": "sum by (team) (aigw_tokens_total)",
-    "tokens_total_all": "sum(aigw_tokens_total)",
+    # Gateway-wide usage rate (both directions, all teams): tokens per minute
+    # averaged over the last 10 minutes. rate() treats counter resets (gateway
+    # restarts) as resets, so this stays meaningful across restarts.
+    "tokens_rate": "sum(rate(aigw_tokens_total[10m])) * 60",
     "latency_p95_seconds":
         "histogram_quantile(0.95, sum by (le) (rate(aigw_request_duration_seconds_bucket[10m])))",
     "fallbacks": "sum by (team) (aigw_fallbacks_total)",
@@ -111,7 +114,7 @@ def publish_discovery(client):
                 cfg["device_class"] = dev_class
             pub(client, f"homeassistant/sensor/aigw/{eid}/config", json.dumps(cfg))
     for eid, name, unit, state_class, ic in [
-        ("tokens_total", "Tokens Total", "tokens", "total_increasing", None),
+        ("tokens_rate", "Tokens per Minute", "tokens/min", "measurement", "mdi:chart-line"),
         ("latency_p95_seconds", "Latency p95", "s", "measurement", "mdi:speedometer"),
         ("gateway_up", "Gateway Up", "", None, None),
     ]:
@@ -127,6 +130,12 @@ def publish_discovery(client):
         if ic:
             cfg["icon"] = ic
         pub(client, f"homeassistant/sensor/aigw/{eid}/config", json.dumps(cfg))
+
+    # Retire the old cumulative gateway-wide "Tokens Total" sensor and its retained
+    # state; it is replaced by the tokens/min rate sensor above. An empty retained
+    # discovery payload tells Home Assistant to remove the entity.
+    pub(client, "homeassistant/sensor/aigw/tokens_total/config", "")
+    pub(client, f"{PREFIX}/tokens_total/global", "")
 
 
 def publish_state(client, key, team, value):
@@ -154,16 +163,10 @@ def main():
         try:
             for key, query in QUERIES.items():
                 res = prom(query)
-                if key == "latency_p95_seconds":
+                if key in ("latency_p95_seconds", "tokens_rate"):
                     val = res.get("-global")
                     if val is not None:
                         publish_state(client, key, "global", val)
-                    continue
-                if key.endswith("_all"):
-                    base = key[:-4]  # strip _all: same topic prefix as the per-team sensor
-                    val = res.get("-global")
-                    if val is not None:
-                        publish_state(client, base, "global", val)
                     continue
                 for team in TEAMS:
                     publish_state(client, key, team, by_team(res, team))
